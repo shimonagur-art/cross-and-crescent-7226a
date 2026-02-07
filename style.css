@@ -15,7 +15,8 @@ body {
 /* ================= Header ================= */
 
 .header {
-  padding: 16px 16px 10px;
+  /* ✅ reduced by ~35% */
+  padding: 10px 12px 6px;
   border-bottom: 1px solid #e6e6e6;
   background: #fff;
   position: sticky;
@@ -23,23 +24,51 @@ body {
   z-index: 10;
 }
 
-/* ✅ title left + legend right */
+/* ✅ title left + legend/toggle right */
 .headerTop{
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .header__title h1 { 
-  margin: 0 0 4px; 
-  font-size: 18px; 
+  margin: 0 0 3px; 
+  font-size: 16px; 
 }
 
 .header__title p { 
   margin: 0; 
   color: #444; 
-  font-size: 13px; 
+  font-size: 12px; 
+}
+
+/* ✅ wrapper for toggle + legend */
+.headerRight{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* ✅ tiny toggle button (top-row only) */
+.miniBtn{
+  appearance: none;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #111;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.miniBtn:hover{ background:#f6f6f6; }
+.miniBtn:active{ transform: translateY(1px); }
+.miniBtn:focus{
+  outline: 2px solid #111;
+  outline-offset: 2px;
 }
 
 /* ✅ Legend: two rows (CCC on top, Inspired-by below) */
@@ -47,9 +76,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;      /* keep it tight to top-right */
-  gap: 10px;
-  margin-top: 2px;
-  font-size: 14px;
+  gap: 8px;
+  margin-top: 0;
+  font-size: 13px;
   color: #111;
   white-space: nowrap;
 }
@@ -57,7 +86,7 @@ body {
 .legend__row{
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
   flex-wrap: nowrap;          /* keep each row on ONE line */
   justify-content: flex-end;
 }
@@ -70,8 +99,8 @@ body {
 
 /* Dots (CCC) */
 .legend__dot{
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   display: inline-block;
   flex: 0 0 auto;
@@ -83,7 +112,7 @@ body {
 
 /* Dashed lines (Inspired by) */
 .legend__line{
-  width: 40px;
+  width: 38px;
   height: 0;
   border-top: 4px dashed;
   display: inline-block;
@@ -95,15 +124,15 @@ body {
 
 /* Centre the CCC row over the inspired-by row */
 .legend__row:first-child {
-  margin-right: 42px; /* fine-tune this value */
+  margin-right: 38px; /* fine-tune this value */
 }
 
 /* ================= Timeline ================= */
 
 .timeline { 
-  margin-top: 10px; 
+  margin-top: 8px; 
   display: grid; 
-  gap: 8px; 
+  gap: 6px; 
 }
 
 #periodRange { 
@@ -115,7 +144,7 @@ body {
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 11px;
   line-height: 1.25;
   color: #666;
@@ -338,6 +367,10 @@ body {
   }
 
   /* ✅ keep legend neat on mobile */
+  .headerRight{
+    gap: 6px;
+  }
+
   .legend{
     gap: 8px;
     font-size: 13px;
