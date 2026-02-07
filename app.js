@@ -56,54 +56,45 @@ function ensureMapControls() {
   const wrap = document.createElement("div");
   wrap.id = "hrmapControls";
   wrap.style.cssText = `
-    position: fixed;
-    top: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2000;
-
-    background: rgba(255,255,255,0.92);
-    border: 1px solid #e5e5e5;
-    border-radius: 12px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.10);
-
-    padding: 8px 10px;
-    display: inline-flex;
+    margin-top: 6px;
+    display: flex;
+    justify-content: flex-end;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-
-    font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    backdrop-filter: blur(6px);
+    gap: 8px;
   `;
 
   wrap.innerHTML = `
-    <span style="font-weight:600; margin-right:4px;">Overlay</span>
-
     <button id="btnToggleBase"
-      style="padding:6px 10px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer;">
-      Hide basemap
+      style="
+        padding: 4px 8px;
+        border-radius: 8px;
+        border: 1px solid #d6d6d6;
+        background: #fff;
+        cursor: pointer;
+        font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        line-height: 1;
+      ">
+      Show basemap
     </button>
-
-    <button id="btnToggleOverlay"
-      style="padding:6px 10px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer;">
-      Hide overlay
-    </button>
-
-    <label style="display:flex; align-items:center; gap:8px; margin-left:6px;">
-      <span style="white-space:nowrap;">Opacity</span>
-      <input id="hrOpacity" type="range" min="0" max="1" step="0.05" value="0.70" />
-      <span id="hrOpacityVal" style="min-width:34px; text-align:right;">0.70</span>
-    </label>
   `;
 
-  // ✅ Add to body so it doesn’t affect header/map layout
-  document.body.appendChild(wrap);
+  // ✅ Place it under the “Inspired by …” row (dashed legend)
+  // We detect a container that includes both legend labels, then insert after it.
+  const header = document.querySelector(".header") || document.body;
+  const all = Array.from(header.querySelectorAll("*"));
+
+  const inspiredRow = all.find(el => {
+    const t = (el.textContent || "");
+    return t.includes("Inspired by Christianity") && t.includes("Inspired by Islam");
+  });
+
+  if (inspiredRow) inspiredRow.insertAdjacentElement("afterend", wrap);
+  else header.appendChild(wrap); // fallback
 
   const btnBase = document.getElementById("btnToggleBase");
-  const btnOverlay = document.getElementById("btnToggleOverlay");
-  const slider = document.getElementById("hrOpacity");
-  const val = document.getElementById("hrOpacityVal");
+
+  // Default: basemap OFF (handwritten-only view)
+  if (baseLayer && map.hasLayer(baseLayer)) map.removeLayer(baseLayer);
 
   btnBase.addEventListener("click", () => {
     if (!baseLayer) return;
@@ -115,28 +106,16 @@ function ensureMapControls() {
       btnBase.textContent = "Hide basemap";
     }
   });
-
-  btnOverlay.addEventListener("click", () => {
-    if (!hrOverlay) return;
-    if (map.hasLayer(hrOverlay)) {
-      map.removeLayer(hrOverlay);
-      btnOverlay.textContent = "Show overlay";
-    } else {
-      hrOverlay.addTo(map);
-      btnOverlay.textContent = "Hide overlay";
-    }
-  });
-
-  slider.addEventListener("input", () => {
-    const v = Number(slider.value);
-    val.textContent = v.toFixed(2);
-    if (hrOverlay) hrOverlay.setOpacity(v);
-  });
 }
 
-
 function initMap() {
-  map = L.map("map", { scrollWheelZoom: false }).setView([41.5, 18], 4);
+ map = L.map("map", { scrollWheelZoom: false });
+
+map.fitBounds([
+  [30, -12],  // North Africa / Morocco-ish
+  [60, 45]    // North England / Eastern Europe-ish
+]);
+
 
   // ✅ Clean, label-free basemap
   baseLayer = L.tileLayer(
