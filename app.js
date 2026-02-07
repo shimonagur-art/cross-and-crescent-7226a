@@ -109,7 +109,7 @@ function ensureMapControls() {
 }
 
 function initMap() {
-map = L.map("map", { scrollWheelZoom: false }).setView([41.8, 12.5], 4);
+map = L.map("map", { scrollWheelZoom: false }).setView([44.5, 8.5], 4);
 
 
   // ✅ Clean, label-free basemap
