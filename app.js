@@ -51,8 +51,11 @@ function escapeHtml(s) {
 function initMap() {
   map = L.map("map", { scrollWheelZoom: false }).setView([41.5, 18], 4);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
+  // ✅ Clean, label-free basemap (CARTO Light - No Labels)
+  // This removes city/place labels and keeps a quiet background.
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+    maxZoom: 20,
+    subdomains: "abcd",
     attribution: ""
   }).addTo(map);
 
@@ -184,8 +187,6 @@ function fadeInMarker(marker, targetFillOpacity, durationMs = 450) {
 }
 
 // ===== Dashed crawl animation WITHOUT dash-offset (no judder) =====
-// We animate the *end point* of the polyline from start -> destination.
-// Because the dash pattern is never animated, it stays smooth and dashed during the crawl.
 async function animateRouteCrawl(polyline, {
   fromLatLng,
   toLatLng,
@@ -207,12 +208,10 @@ async function animateRouteCrawl(polyline, {
     const lat = fromLatLng.lat + (toLatLng.lat - fromLatLng.lat) * e;
     const lng = fromLatLng.lng + (toLatLng.lng - fromLatLng.lng) * e;
 
-    // Grow the line
     polyline.setLatLngs([fromLatLng, L.latLng(lat, lng)]);
 
     if (t < 1) requestAnimationFrame(frame);
     else {
-      // Ensure it ends exactly at the destination
       polyline.setLatLngs([fromLatLng, toLatLng]);
     }
   }
@@ -317,7 +316,6 @@ async function loadData() {
 
 // --- Render for a period index ---
 function drawForPeriod(periodIndex) {
-  // Cancel previous animations and start a fresh "render token"
   renderToken++;
   const token = renderToken;
 
@@ -390,7 +388,6 @@ function drawForPeriod(periodIndex) {
       marker.addTo(markersLayer);
       fadeInMarker(marker, marker.__baseStyle.fillOpacity, 400);
 
-      // Routes: create as "start->start" then crawl the endpoint to destination
       for (const r of routes) {
         if (r?.toLat == null || r?.toLng == null) continue;
 
@@ -407,8 +404,8 @@ function drawForPeriod(periodIndex) {
         animateRouteCrawl(routeLine, {
           fromLatLng: from,
           toLatLng: to,
-          durationMs: 1500,           // crawl speed (tweak)
-          delayMs: routeIndex * 200,  // stagger (tweak)
+          durationMs: 1500,
+          delayMs: routeIndex * 200,
           token
         });
 
