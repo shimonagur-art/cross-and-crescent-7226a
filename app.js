@@ -51,37 +51,47 @@ function escapeHtml(s) {
 
 // --- UI Controls for overlay/basemap ---
 function ensureMapControls() {
-  // Avoid duplicates on hot reload
   if (document.getElementById("hrmapControls")) return;
 
   const wrap = document.createElement("div");
   wrap.id = "hrmapControls";
   wrap.style.cssText = `
-    position:absolute; z-index:1000; left:12px; top:12px;
-    background:rgba(255,255,255,0.92); border:1px solid #ddd;
-    border-radius:10px; padding:10px; box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    margin: 12px 0 16px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
     font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   `;
 
   wrap.innerHTML = `
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-      <button id="btnToggleBase" style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
-        Hide basemap
-      </button>
-      <button id="btnToggleOverlay" style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
-        Hide overlay
-      </button>
-    </div>
-    <div style="display:flex; align-items:center; gap:8px;">
+    <strong style="margin-right:6px;">Map layers</strong>
+
+    <button id="btnToggleBase"
+      style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
+      Hide basemap
+    </button>
+
+    <button id="btnToggleOverlay"
+      style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
+      Hide handwritten map
+    </button>
+
+    <label style="display:flex; align-items:center; gap:8px; margin-left:8px;">
       <span style="white-space:nowrap;">Overlay opacity</span>
       <input id="hrOpacity" type="range" min="0" max="1" step="0.05" value="0.70" />
       <span id="hrOpacityVal" style="min-width:36px; text-align:right;">0.70</span>
-    </div>
+    </label>
   `;
 
+  // 🔹 Insert it just after the legend (before the map)
   const mapEl = document.getElementById("map");
-  mapEl.style.position = "relative";
-  mapEl.appendChild(wrap);
+  mapEl.parentNode.insertBefore(wrap, mapEl);
 
   const btnBase = document.getElementById("btnToggleBase");
   const btnOverlay = document.getElementById("btnToggleOverlay");
@@ -103,10 +113,10 @@ function ensureMapControls() {
     if (!hrOverlay) return;
     if (map.hasLayer(hrOverlay)) {
       map.removeLayer(hrOverlay);
-      btnOverlay.textContent = "Show overlay";
+      btnOverlay.textContent = "Show handwritten map";
     } else {
       hrOverlay.addTo(map);
-      btnOverlay.textContent = "Hide overlay";
+      btnOverlay.textContent = "Hide handwritten map";
     }
   });
 
@@ -116,6 +126,7 @@ function ensureMapControls() {
     if (hrOverlay) hrOverlay.setOpacity(v);
   });
 }
+
 
 function initMap() {
   map = L.map("map", { scrollWheelZoom: false }).setView([41.5, 18], 4);
