@@ -56,59 +56,49 @@ function ensureMapControls() {
   const wrap = document.createElement("div");
   wrap.id = "hrmapControls";
   wrap.style.cssText = `
-    margin: 10px 0 14px;
-    padding: 10px 12px;
-    background: #fff;
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+
+    background: rgba(255,255,255,0.92);
     border: 1px solid #e5e5e5;
-    border-radius: 10px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+
+    padding: 8px 10px;
     display: inline-flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     flex-wrap: wrap;
+
     font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    backdrop-filter: blur(6px);
   `;
 
   wrap.innerHTML = `
-    <strong style="margin-right:6px;">Handwritten overlay</strong>
+    <span style="font-weight:600; margin-right:4px;">Overlay</span>
 
     <button id="btnToggleBase"
-      style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
+      style="padding:6px 10px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer;">
       Hide basemap
     </button>
 
     <button id="btnToggleOverlay"
-      style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
+      style="padding:6px 10px; border-radius:10px; border:1px solid #ccc; background:#fff; cursor:pointer;">
       Hide overlay
     </button>
 
-    <label style="display:flex; align-items:center; gap:8px; margin-left:8px;">
+    <label style="display:flex; align-items:center; gap:8px; margin-left:6px;">
       <span style="white-space:nowrap;">Opacity</span>
       <input id="hrOpacity" type="range" min="0" max="1" step="0.05" value="0.70" />
-      <span id="hrOpacityVal" style="min-width:36px; text-align:right;">0.70</span>
+      <span id="hrOpacityVal" style="min-width:34px; text-align:right;">0.70</span>
     </label>
   `;
 
-  // ✅ Try to insert directly under your legend (top-right color codes)
-  // We look for the first element that contains "Culture" and "Commerce" etc.
-  const header = document.querySelector(".header") || document.querySelector("header") || document.body;
-
-  // Find a likely legend container by text content
-  const candidates = Array.from(header.querySelectorAll("*")).filter(el => {
-    const t = (el.textContent || "").trim();
-    return t.includes("Culture") && t.includes("Commerce") && t.includes("Conquest");
-  });
-
-  if (candidates.length) {
-    // Insert after the smallest matching element (most specific)
-    candidates.sort((a,b) => a.textContent.length - b.textContent.length);
-    const legendEl = candidates[0];
-    legendEl.insertAdjacentElement("afterend", wrap);
-  } else {
-    // Fallback: put it just above the map
-    const mapEl = document.getElementById("map");
-    mapEl.parentNode.insertBefore(wrap, mapEl);
-  }
+  // ✅ Add to body so it doesn’t affect header/map layout
+  document.body.appendChild(wrap);
 
   const btnBase = document.getElementById("btnToggleBase");
   const btnOverlay = document.getElementById("btnToggleOverlay");
