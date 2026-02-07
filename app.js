@@ -28,8 +28,8 @@ const HRMAP_URL = "images/hrmap.png";
 // Format: [[southLat, westLng], [northLat, eastLng]]
 // These are placeholders until you confirm your intended extent.
 let HRMAP_BOUNDS = [
-  [18, -12], // south, west
-  [62, 55]   // north, east
+  [18, -15], // south, west
+  [62, 52]   // north, east
 ];
 
 let baseLayer = null;
@@ -56,7 +56,7 @@ function ensureMapControls() {
   const wrap = document.createElement("div");
   wrap.id = "hrmapControls";
   wrap.style.cssText = `
-    margin: 12px 0 16px;
+    margin: 10px 0 14px;
     padding: 10px 12px;
     background: #fff;
     border: 1px solid #e5e5e5;
@@ -70,7 +70,7 @@ function ensureMapControls() {
   `;
 
   wrap.innerHTML = `
-    <strong style="margin-right:6px;">Map layers</strong>
+    <strong style="margin-right:6px;">Handwritten overlay</strong>
 
     <button id="btnToggleBase"
       style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
@@ -79,19 +79,36 @@ function ensureMapControls() {
 
     <button id="btnToggleOverlay"
       style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
-      Hide handwritten map
+      Hide overlay
     </button>
 
     <label style="display:flex; align-items:center; gap:8px; margin-left:8px;">
-      <span style="white-space:nowrap;">Overlay opacity</span>
+      <span style="white-space:nowrap;">Opacity</span>
       <input id="hrOpacity" type="range" min="0" max="1" step="0.05" value="0.70" />
       <span id="hrOpacityVal" style="min-width:36px; text-align:right;">0.70</span>
     </label>
   `;
 
-  // 🔹 Insert it just after the legend (before the map)
-  const mapEl = document.getElementById("map");
-  mapEl.parentNode.insertBefore(wrap, mapEl);
+  // ✅ Try to insert directly under your legend (top-right color codes)
+  // We look for the first element that contains "Culture" and "Commerce" etc.
+  const header = document.querySelector(".header") || document.querySelector("header") || document.body;
+
+  // Find a likely legend container by text content
+  const candidates = Array.from(header.querySelectorAll("*")).filter(el => {
+    const t = (el.textContent || "").trim();
+    return t.includes("Culture") && t.includes("Commerce") && t.includes("Conquest");
+  });
+
+  if (candidates.length) {
+    // Insert after the smallest matching element (most specific)
+    candidates.sort((a,b) => a.textContent.length - b.textContent.length);
+    const legendEl = candidates[0];
+    legendEl.insertAdjacentElement("afterend", wrap);
+  } else {
+    // Fallback: put it just above the map
+    const mapEl = document.getElementById("map");
+    mapEl.parentNode.insertBefore(wrap, mapEl);
+  }
 
   const btnBase = document.getElementById("btnToggleBase");
   const btnOverlay = document.getElementById("btnToggleOverlay");
@@ -113,10 +130,10 @@ function ensureMapControls() {
     if (!hrOverlay) return;
     if (map.hasLayer(hrOverlay)) {
       map.removeLayer(hrOverlay);
-      btnOverlay.textContent = "Show handwritten map";
+      btnOverlay.textContent = "Show overlay";
     } else {
       hrOverlay.addTo(map);
-      btnOverlay.textContent = "Hide handwritten map";
+      btnOverlay.textContent = "Hide overlay";
     }
   });
 
