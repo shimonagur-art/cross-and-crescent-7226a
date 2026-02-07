@@ -109,12 +109,7 @@ function ensureMapControls() {
 }
 
 function initMap() {
- map = L.map("map", { scrollWheelZoom: false });
-
-map.fitBounds([
-  [30, -12],  // North Africa / Morocco-ish
-  [60, 45]    // North England / Eastern Europe-ish
-]);
+map = L.map("map", { scrollWheelZoom: false }).setView([41.8, 12.5], 4);
 
 
   // ✅ Clean, label-free basemap
