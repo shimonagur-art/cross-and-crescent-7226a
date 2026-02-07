@@ -2,7 +2,7 @@
 // Cross & Crescent - app.js (DATA-DRIVEN)
 // Basemap: CARTO light_nolabels (clean, no labels)
 // Overlay: hrmap.png (handwritten) aligned by geo bounds
-// Controls: toggle basemap/overlay + overlay opacity slider
+// Controls: tiny "Show/Hide basemap" button in the TOP header (doesn't push map down)
 // ==============================
 
 const periodRange = document.getElementById("periodRange");
@@ -26,7 +26,6 @@ const HRMAP_URL = "images/hrmap.png";
 
 // 🔧 IMPORTANT: Adjust these 2 corners to align the overlay to geo space
 // Format: [[southLat, westLng], [northLat, eastLng]]
-// These are placeholders until you confirm your intended extent.
 let HRMAP_BOUNDS = [
   [18, -15], // south, west
   [62, 52]   // north, east
@@ -49,55 +48,57 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-// --- UI Controls for overlay/basemap ---
+/**
+ * ✅ Adds a tiny "Show/Hide basemap" button in the header area
+ * Tries to place it:
+ *   1) inside .headerRight (if you have it)
+ *   2) otherwise next to the legend (top-right)
+ * Does NOT insert between header and timeline (so it won't push the map down).
+ */
 function ensureMapControls() {
   if (document.getElementById("hrmapControls")) return;
 
   const wrap = document.createElement("div");
   wrap.id = "hrmapControls";
   wrap.style.cssText = `
-    margin-top: 6px;
-    display: flex;
-    justify-content: flex-end;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
   `;
 
   wrap.innerHTML = `
-    <button id="btnToggleBase"
-      style="
-        padding: 4px 8px;
-        border-radius: 8px;
-        border: 1px solid #d6d6d6;
-        background: #fff;
-        cursor: pointer;
-        font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        line-height: 1;
-      ">
-      Show basemap
-    </button>
+    <button id="btnToggleBase" class="miniBtn" type="button">Show basemap</button>
   `;
 
-  // ✅ Place it under the “Inspired by …” row (dashed legend)
-  // We detect a container that includes both legend labels, then insert after it.
-  const header = document.querySelector(".header") || document.body;
-  const all = Array.from(header.querySelectorAll("*"));
-
-  const inspiredRow = all.find(el => {
-    const t = (el.textContent || "");
-    return t.includes("Inspired by Christianity") && t.includes("Inspired by Islam");
-  });
-
-  if (inspiredRow) inspiredRow.insertAdjacentElement("afterend", wrap);
-  else header.appendChild(wrap); // fallback
+  // Preferred: a right-side header container (works with the updated CSS you pasted)
+  const headerRight = document.querySelector(".headerRight");
+  if (headerRight) {
+    // Insert at the top of that right column
+    headerRight.insertBefore(wrap, headerRight.firstChild);
+  } else {
+    // Fallback: put it right after the legend in the headerTop
+    const legend = document.querySelector(".legend");
+    const headerTop = document.querySelector(".headerTop");
+    if (legend) {
+      legend.insertAdjacentElement("afterend", wrap);
+    } else if (headerTop) {
+      headerTop.appendChild(wrap);
+    } else {
+      (document.querySelector(".header") || document.body).appendChild(wrap);
+    }
+  }
 
   const btnBase = document.getElementById("btnToggleBase");
 
   // Default: basemap OFF (handwritten-only view)
-  if (baseLayer && map.hasLayer(baseLayer)) map.removeLayer(baseLayer);
+  if (baseLayer && map.hasLayer(baseLayer)) {
+    map.removeLayer(baseLayer);
+    btnBase.textContent = "Show basemap";
+  }
 
   btnBase.addEventListener("click", () => {
     if (!baseLayer) return;
+
     if (map.hasLayer(baseLayer)) {
       map.removeLayer(baseLayer);
       btnBase.textContent = "Show basemap";
@@ -109,8 +110,8 @@ function ensureMapControls() {
 }
 
 function initMap() {
-map = L.map("map", { scrollWheelZoom: false }).setView([44.5, 8.5], 4);
-
+  // ✅ Keep setView (we'll tune later if needed)
+  map = L.map("map", { scrollWheelZoom: false }).setView([44.5, 8.5], 4);
 
   // ✅ Clean, label-free basemap
   baseLayer = L.tileLayer(
@@ -121,7 +122,7 @@ map = L.map("map", { scrollWheelZoom: false }).setView([44.5, 8.5], 4);
   // ✅ Handwritten overlay (semi-transparent)
   hrOverlay = L.imageOverlay(HRMAP_URL, HRMAP_BOUNDS, { opacity: 0.7 }).addTo(map);
 
-  // Optional: log if the image fails to load
+  // Log if the image fails to load
   hrOverlay.on("error", () => console.error("❌ hrmap overlay failed to load:", HRMAP_URL));
 
   markersLayer = L.layerGroup().addTo(map);
