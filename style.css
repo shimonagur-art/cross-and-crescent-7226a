@@ -15,70 +15,64 @@ body {
 /* ================= Header ================= */
 
 .header {
-  /* ✅ reduced by ~35% */
-  padding: 10px 12px 6px;
+  padding: 16px 16px 10px;
   border-bottom: 1px solid #e6e6e6;
   background: #fff;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 1000; /* ✅ ensure header stays above Leaflet when scrolling */
 }
 
-/* ✅ title left + legend/toggle right */
+/* ✅ Title left + toggle center + legend right */
 .headerTop{
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: 16px;
 }
 
 .header__title h1 { 
-  margin: 0 0 3px; 
-  font-size: 16px; 
+  margin: 0 0 4px; 
+  font-size: 18px; 
 }
 
 .header__title p { 
   margin: 0; 
   color: #444; 
-  font-size: 12px; 
+  font-size: 13px; 
 }
 
-/* ✅ wrapper for toggle + legend */
-.headerRight{
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+/* ✅ Toggle slot */
+.headerControls{
+  justify-self: center;
+  align-self: start;
+  margin-top: 2px;
 }
 
-/* ✅ tiny toggle button (top-row only) */
-.miniBtn{
-  appearance: none;
-  border: 1px solid #d9d9d9;
-  background: #fff;
-  color: #111;
+/* Tiny toggle button style (JS uses these classes) */
+.mapToggleBtn{
+  padding: 6px 10px;
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  line-height: 1;
+  border: 1px solid #d6d6d6;
+  background: #fff;
   cursor: pointer;
+  font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  line-height: 1;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
 }
-
-.miniBtn:hover{ background:#f6f6f6; }
-.miniBtn:active{ transform: translateY(1px); }
-.miniBtn:focus{
-  outline: 2px solid #111;
-  outline-offset: 2px;
+.mapToggleBtn:hover{
+  background: #f7f7f7;
 }
 
 /* ✅ Legend: two rows (CCC on top, Inspired-by below) */
 .legend{
+  justify-self: end;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;      /* keep it tight to top-right */
-  gap: 8px;
-  margin-top: 0;
-  font-size: 13px;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 14px;
   color: #111;
   white-space: nowrap;
 }
@@ -86,8 +80,8 @@ body {
 .legend__row{
   display: flex;
   align-items: center;
-  gap: 18px;
-  flex-wrap: nowrap;          /* keep each row on ONE line */
+  gap: 22px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -99,8 +93,8 @@ body {
 
 /* Dots (CCC) */
 .legend__dot{
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
   display: inline-block;
   flex: 0 0 auto;
@@ -112,7 +106,7 @@ body {
 
 /* Dashed lines (Inspired by) */
 .legend__line{
-  width: 38px;
+  width: 40px;
   height: 0;
   border-top: 4px dashed;
   display: inline-block;
@@ -124,15 +118,15 @@ body {
 
 /* Centre the CCC row over the inspired-by row */
 .legend__row:first-child {
-  margin-right: 38px; /* fine-tune this value */
+  margin-right: 42px;
 }
 
 /* ================= Timeline ================= */
 
 .timeline { 
-  margin-top: 8px; 
+  margin-top: 10px; 
   display: grid; 
-  gap: 6px; 
+  gap: 8px; 
 }
 
 #periodRange { 
@@ -144,7 +138,7 @@ body {
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 11px;
   line-height: 1.25;
   color: #666;
@@ -159,24 +153,20 @@ body {
   user-select: none;
 }
 
-/* Hover */
 .bands span:hover {
   background: #f5f5f5;
 }
 
-/* Keyboard focus */
 .bands span:focus {
   outline: 2px solid #111;
   outline-offset: 2px;
 }
 
-/* Title line */
 .bands strong {
   display: block;
   font-weight: 500;
 }
 
-/* Year range line */
 .bands em {
   display: block;
   font-style: normal;
@@ -184,7 +174,6 @@ body {
   color: #888;
 }
 
-/* Active period highlight */
 .bands span.active {
   color: #0b4f6c;
   font-weight: 700;
@@ -216,6 +205,8 @@ body {
   border-radius: 10px; 
   border: 1px solid #e6e6e6; 
   overflow: hidden; 
+  position: relative;
+  z-index: 1; /* ✅ keep map under header */
 }
 
 /* ================= Side Panel ================= */
@@ -255,7 +246,7 @@ body {
 }
 
 /* ================= Hover tooltip with thumbnail (Leaflet) ================= */
-/* Uses className: "hover-tooltip" so only our tooltips are affected */
+
 .hover-tooltip {
   background: transparent !important;
   border: none !important;
@@ -263,7 +254,6 @@ body {
   padding: 0 !important;
 }
 
-/* Prevent Leaflet focus outlines appearing as “boxes” */
 .leaflet-interactive:focus {
   outline: none !important;
 }
@@ -300,7 +290,6 @@ body {
   line-height: 1.2;
 }
 
-/* ✅ Fix overflow: wrap + clamp (never spills out of box) */
 .hover-text {
   font-size: 12px;
   line-height: 1.25;
@@ -347,7 +336,6 @@ body {
     height: 55vh; 
   }
 
-  /* Stack labels on small screens */
   .bands {
     grid-template-columns: repeat(3, 1fr);
     row-gap: 8px;
@@ -366,17 +354,11 @@ body {
     grid-template-columns: 1fr;
   }
 
-  /* ✅ keep legend neat on mobile */
-  .headerRight{
-    gap: 6px;
-  }
-
   .legend{
     gap: 8px;
     font-size: 13px;
   }
 
-  /* allow legend rows to wrap on small screens */
   .legend__row{
     flex-wrap: wrap;
     gap: 14px;
@@ -390,5 +372,13 @@ body {
   .legend__line{
     width: 34px;
     border-top-width: 3px;
+  }
+
+  /* On mobile, let controls sit below title if needed */
+  .headerTop{
+    grid-template-columns: 1fr;
+  }
+  .headerControls{
+    justify-self: start;
   }
 }
