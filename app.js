@@ -1,16 +1,8 @@
 // ==============================
 // Cross & Crescent - app.js (DATA-DRIVEN)
-// Loads:
-//   - data/objects.json  (array of objects)
-//   - data/periods.json  ({ periods: [...] })
-// Renders:
-//   - markers per object location
-//   - hover tooltips with thumbnails (minimal text)
-//   - click opens right panel with full details
-//   - routes (influence) from each location -> target, colored by influence
-// Adds:
-//   - Fade-out old period then fade-in new period (smooth transitions)
-//   - Route "crawl" animation (dashed during crawl, no judder)
+// Basemap: CARTO light_nolabels (clean, no labels)
+// Overlay: hrmap.png (handwritten) aligned by geo bounds
+// Controls: toggle basemap/overlay + overlay opacity slider
 // ==============================
 
 const periodRange = document.getElementById("periodRange");
@@ -22,17 +14,26 @@ let map = null;
 let markersLayer = null;
 let routesLayer = null;
 
-let PERIODS = [];              // from data/periods.json
-let OBJECTS_BY_ID = new Map(); // from data/objects.json
+let PERIODS = [];
+let OBJECTS_BY_ID = new Map();
 
-// Track the currently selected marker so we can keep it darker
 let selectedMarker = null;
-
-// Prevent spamming transitions when dragging slider fast
 let isTransitioning = false;
-
-// Cancels any in-flight route animations when period changes
 let renderToken = 0;
+
+// ===== Overlay settings =====
+const HRMAP_URL = "images/hrmap.png";
+
+// 🔧 IMPORTANT: Adjust these 2 corners to align the overlay to geo space
+// Format: [[southLat, westLng], [northLat, eastLng]]
+// These are placeholders until you confirm your intended extent.
+let HRMAP_BOUNDS = [
+  [18, -12], // south, west
+  [62, 55]   // north, east
+];
+
+let baseLayer = null;
+let hrOverlay = null;
 
 function setPanel(title, html) {
   panelTitle.textContent = title;
@@ -48,19 +49,93 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
+// --- UI Controls for overlay/basemap ---
+function ensureMapControls() {
+  // Avoid duplicates on hot reload
+  if (document.getElementById("hrmapControls")) return;
+
+  const wrap = document.createElement("div");
+  wrap.id = "hrmapControls";
+  wrap.style.cssText = `
+    position:absolute; z-index:1000; left:12px; top:12px;
+    background:rgba(255,255,255,0.92); border:1px solid #ddd;
+    border-radius:10px; padding:10px; box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  `;
+
+  wrap.innerHTML = `
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+      <button id="btnToggleBase" style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
+        Hide basemap
+      </button>
+      <button id="btnToggleOverlay" style="padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer;">
+        Hide overlay
+      </button>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="white-space:nowrap;">Overlay opacity</span>
+      <input id="hrOpacity" type="range" min="0" max="1" step="0.05" value="0.70" />
+      <span id="hrOpacityVal" style="min-width:36px; text-align:right;">0.70</span>
+    </div>
+  `;
+
+  const mapEl = document.getElementById("map");
+  mapEl.style.position = "relative";
+  mapEl.appendChild(wrap);
+
+  const btnBase = document.getElementById("btnToggleBase");
+  const btnOverlay = document.getElementById("btnToggleOverlay");
+  const slider = document.getElementById("hrOpacity");
+  const val = document.getElementById("hrOpacityVal");
+
+  btnBase.addEventListener("click", () => {
+    if (!baseLayer) return;
+    if (map.hasLayer(baseLayer)) {
+      map.removeLayer(baseLayer);
+      btnBase.textContent = "Show basemap";
+    } else {
+      baseLayer.addTo(map);
+      btnBase.textContent = "Hide basemap";
+    }
+  });
+
+  btnOverlay.addEventListener("click", () => {
+    if (!hrOverlay) return;
+    if (map.hasLayer(hrOverlay)) {
+      map.removeLayer(hrOverlay);
+      btnOverlay.textContent = "Show overlay";
+    } else {
+      hrOverlay.addTo(map);
+      btnOverlay.textContent = "Hide overlay";
+    }
+  });
+
+  slider.addEventListener("input", () => {
+    const v = Number(slider.value);
+    val.textContent = v.toFixed(2);
+    if (hrOverlay) hrOverlay.setOpacity(v);
+  });
+}
+
 function initMap() {
   map = L.map("map", { scrollWheelZoom: false }).setView([41.5, 18], 4);
 
-  // ✅ Clean, label-free basemap (CARTO Light - No Labels)
-  // This removes city/place labels and keeps a quiet background.
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-    maxZoom: 20,
-    subdomains: "abcd",
-    attribution: ""
-  }).addTo(map);
+  // ✅ Clean, label-free basemap
+  baseLayer = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+    { maxZoom: 20, subdomains: "abcd", attribution: "" }
+  ).addTo(map);
+
+  // ✅ Handwritten overlay (semi-transparent)
+  hrOverlay = L.imageOverlay(HRMAP_URL, HRMAP_BOUNDS, { opacity: 0.7 }).addTo(map);
+
+  // Optional: log if the image fails to load
+  hrOverlay.on("error", () => console.error("❌ hrmap overlay failed to load:", HRMAP_URL));
 
   markersLayer = L.layerGroup().addTo(map);
   routesLayer = L.layerGroup().addTo(map);
+
+  ensureMapControls();
 }
 
 function clearLayers() {
@@ -86,54 +161,30 @@ function updatePeriodUI(index) {
 // --- Color / style helpers ---
 function routeColor(influence) {
   const v = String(influence || "").trim().toLowerCase();
-  if (v === "christianity") return "#d32f2f"; // red
-  if (v === "islam") return "#2e7d32";        // green
-  return "#5e35b1";                           // purple default
+  if (v === "christianity") return "#d32f2f";
+  if (v === "islam") return "#2e7d32";
+  return "#5e35b1";
 }
 
 function categoryColor(category) {
   const v = String(category || "").trim().toLowerCase();
-  if (v === "cultural") return "#2b6cb0";     // blue
-  if (v === "commercial") return "#2f855a";   // green
-  if (v === "conquest") return "#c53030";      // red-ish
-  return "#0b4f6c";                           // fallback teal
+  if (v === "cultural") return "#2b6cb0";
+  if (v === "commercial") return "#2f855a";
+  if (v === "conquest") return "#c53030";
+  return "#0b4f6c";
 }
 
-// Marker visual states (bigger; base semi-transparent; hover/selected opaque)
 function markerStyleBase(color) {
-  return {
-    radius: 11,
-    weight: 0,
-    opacity: 0,
-    color: color,
-    fillColor: color,
-    fillOpacity: 0.65
-  };
+  return { radius: 11, weight: 0, opacity: 0, color, fillColor: color, fillOpacity: 0.65 };
 }
-
 function markerStyleHover(color) {
-  return {
-    radius: 12,
-    weight: 0,
-    opacity: 0,
-    color: color,
-    fillColor: color,
-    fillOpacity: 0.95
-  };
+  return { radius: 12, weight: 0, opacity: 0, color, fillColor: color, fillOpacity: 0.95 };
 }
-
 function markerStyleSelected(color) {
-  return {
-    radius: 12,
-    weight: 0,
-    opacity: 0,
-    color: color,
-    fillColor: color,
-    fillOpacity: 1
-  };
+  return { radius: 12, weight: 0, opacity: 0, color, fillColor: color, fillOpacity: 1 };
 }
 
-// --- Fade helpers (for period transitions) ---
+// --- Fade helpers ---
 function easeLinear(t) { return t; }
 
 function animateStyle(layer, from, to, durationMs = 300, onDone) {
@@ -159,7 +210,6 @@ function animateStyle(layer, from, to, durationMs = 300, onDone) {
 function fadeOutLayers(markersLayer, routesLayer, durationMs = 220) {
   const markers = [];
   markersLayer.eachLayer(l => markers.push(l));
-
   const routes = [];
   routesLayer.eachLayer(l => routes.push(l));
 
@@ -168,14 +218,12 @@ function fadeOutLayers(markersLayer, routesLayer, durationMs = 220) {
       fillOpacity: (typeof m.options?.fillOpacity === "number") ? m.options.fillOpacity : 0.5,
       opacity: (typeof m.options?.opacity === "number") ? m.options.opacity : 1
     };
-    const to = { fillOpacity: 0, opacity: 0 };
-    animateStyle(m, from, to, durationMs);
+    animateStyle(m, from, { fillOpacity: 0, opacity: 0 }, durationMs);
   }
 
   for (const r of routes) {
     const from = { opacity: (typeof r.options?.opacity === "number") ? r.options.opacity : 0.9 };
-    const to = { opacity: 0 };
-    animateStyle(r, from, to, durationMs);
+    animateStyle(r, from, { opacity: 0 }, durationMs);
   }
 
   return new Promise(resolve => setTimeout(resolve, durationMs));
@@ -186,19 +234,12 @@ function fadeInMarker(marker, targetFillOpacity, durationMs = 450) {
   animateStyle(marker, { fillOpacity: 0, opacity: 0 }, { fillOpacity: targetFillOpacity, opacity: 1 }, durationMs);
 }
 
-// ===== Dashed crawl animation WITHOUT dash-offset (no judder) =====
-async function animateRouteCrawl(polyline, {
-  fromLatLng,
-  toLatLng,
-  durationMs = 1500,
-  delayMs = 0,
-  token
-} = {}) {
+// --- Route crawl ---
+async function animateRouteCrawl(polyline, { fromLatLng, toLatLng, durationMs = 1500, delayMs = 0, token } = {}) {
   if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
   if (token !== renderToken) return;
 
   const start = performance.now();
-
   function frame(now) {
     if (token !== renderToken) return;
 
@@ -211,24 +252,19 @@ async function animateRouteCrawl(polyline, {
     polyline.setLatLngs([fromLatLng, L.latLng(lat, lng)]);
 
     if (t < 1) requestAnimationFrame(frame);
-    else {
-      polyline.setLatLngs([fromLatLng, toLatLng]);
-    }
+    else polyline.setLatLngs([fromLatLng, toLatLng]);
   }
-
   requestAnimationFrame(frame);
 }
 
-// --- Hover tooltip HTML (minimal) ---
+// --- Hover tooltip ---
 function buildHoverHTML(obj) {
   const title = escapeHtml(obj?.title || obj?.id || "Object");
   const thumb = String(obj?.hover?.thumb || "").trim();
   const yearRaw = obj?.hover?.year ?? obj?.year ?? "";
   const year = yearRaw ? escapeHtml(yearRaw) : "";
 
-  const imgHtml = thumb
-    ? `<img class="hover-thumb" src="${escapeHtml(thumb)}" alt="${title}" />`
-    : "";
+  const imgHtml = thumb ? `<img class="hover-thumb" src="${escapeHtml(thumb)}" alt="${title}" />` : "";
 
   return `
     <div class="hover-card">
@@ -241,16 +277,14 @@ function buildHoverHTML(obj) {
   `;
 }
 
-// --- Right panel HTML ---
+// --- Right panel ---
 function buildPanelHTML(obj, period) {
   const title = escapeHtml(obj?.title || obj?.id || "Object");
   const subtitle = escapeHtml(obj?.panel?.subtitle || "");
   const body = escapeHtml(obj?.panel?.body || "");
 
   const tags = Array.isArray(obj?.tags) ? obj.tags : [];
-  const tagHtml = tags.length
-    ? `<p><strong>Tags:</strong> ${tags.map(t => escapeHtml(t)).join(", ")}</p>`
-    : "";
+  const tagHtml = tags.length ? `<p><strong>Tags:</strong> ${tags.map(t => escapeHtml(t)).join(", ")}</p>` : "";
 
   const locs = Array.isArray(obj?.locations) ? obj.locations : [];
   const locHtml = locs.length
@@ -263,14 +297,7 @@ function buildPanelHTML(obj, period) {
 
   const images = Array.isArray(obj?.panel?.images) ? obj.panel.images : [];
   const imagesHtml = images.length
-    ? `
-      <div class="panel-images">
-        ${images
-          .filter(Boolean)
-          .map(src => `<img class="panel-img" src="${escapeHtml(src)}" alt="${title}" />`)
-          .join("")}
-      </div>
-    `
+    ? `<div class="panel-images">${images.filter(Boolean).map(src => `<img class="panel-img" src="${escapeHtml(src)}" alt="${title}" />`).join("")}</div>`
     : "";
 
   return `
@@ -296,12 +323,8 @@ async function loadData() {
   const objectsArr = await objectsRes.json();
   const periodsObj = await periodsRes.json();
 
-  if (!Array.isArray(objectsArr)) {
-    throw new Error("objects.json must be an array of objects");
-  }
-  if (!periodsObj || !Array.isArray(periodsObj.periods)) {
-    throw new Error('periods.json must be an object like: { "periods": [ ... ] }');
-  }
+  if (!Array.isArray(objectsArr)) throw new Error("objects.json must be an array of objects");
+  if (!periodsObj || !Array.isArray(periodsObj.periods)) throw new Error('periods.json must be { "periods": [ ... ] }');
 
   OBJECTS_BY_ID = new Map(objectsArr.map(o => [o.id, o]));
   PERIODS = periodsObj.periods;
@@ -314,13 +337,11 @@ async function loadData() {
   if (v > PERIODS.length - 1) periodRange.value = String(PERIODS.length - 1);
 }
 
-// --- Render for a period index ---
 function drawForPeriod(periodIndex) {
   renderToken++;
   const token = renderToken;
 
   let routeIndex = 0;
-
   const period = PERIODS[periodIndex];
   clearLayers();
 
@@ -330,7 +351,6 @@ function drawForPeriod(periodIndex) {
   }
 
   const objectIds = Array.isArray(period.objects) ? period.objects : [];
-
   if (objectIds.length === 0) {
     setPanel("No objects", `<p>No objects configured for ${escapeHtml(period.label)}.</p>`);
     return;
@@ -347,7 +367,6 @@ function drawForPeriod(periodIndex) {
 
     const locations = Array.isArray(obj.locations) ? obj.locations : [];
     const routes = Array.isArray(obj.routes) ? obj.routes : [];
-
     if (locations.length === 0) continue;
 
     for (const loc of locations) {
@@ -377,9 +396,7 @@ function drawForPeriod(periodIndex) {
       });
 
       marker.on("click", () => {
-        if (selectedMarker && selectedMarker !== marker) {
-          selectedMarker.setStyle(selectedMarker.__baseStyle);
-        }
+        if (selectedMarker && selectedMarker !== marker) selectedMarker.setStyle(selectedMarker.__baseStyle);
         selectedMarker = marker;
         marker.setStyle(marker.__selectedStyle);
         setPanel(obj.title || obj.id || "Object", buildPanelHTML(obj, period));
@@ -433,22 +450,16 @@ async function applyPeriod(index) {
 }
 
 function wireControls() {
-  periodRange.addEventListener("input", (e) => {
-    applyPeriod(Number(e.target.value));
-  });
+  periodRange.addEventListener("input", (e) => applyPeriod(Number(e.target.value)));
 }
 
 function wireBands() {
   document.querySelectorAll(".bands span").forEach((el) => {
     const activate = () => {
       const idx = Number(el.dataset.index);
-      if (Number.isFinite(idx) && idx >= 0 && idx < PERIODS.length) {
-        applyPeriod(idx);
-      }
+      if (Number.isFinite(idx) && idx >= 0 && idx < PERIODS.length) applyPeriod(idx);
     };
-
     el.addEventListener("click", activate);
-
     el.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter" || ev.key === " ") {
         ev.preventDefault();
