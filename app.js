@@ -2,7 +2,7 @@
 // Cross & Crescent - app.js (DATA-DRIVEN)
 // Basemap: CARTO light_nolabels (clean, no labels)
 // Overlay: hrmap.png (handwritten) aligned by geo bounds
-// Controls: ONE tiny "Show/Hide basemap" button aligned with the 3 category dots
+// Controls: ONE tiny toggle (Show/Hide basemap) injected into #headerControls
 // ==============================
 
 const periodRange = document.getElementById("periodRange");
@@ -24,11 +24,10 @@ let renderToken = 0;
 // ===== Overlay settings =====
 const HRMAP_URL = "images/hrmap.png";
 
-// 🔧 Adjust these corners to align the overlay to geo space
 // Format: [[southLat, westLng], [northLat, eastLng]]
 let HRMAP_BOUNDS = [
-  [18, -15], // south, west
-  [62, 52]   // north, east
+  [18, -15],
+  [62, 52]
 ];
 
 let baseLayer = null;
@@ -48,119 +47,67 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-/**
- * ✅ Ensure exactly ONE basemap toggle exists, and place it
- * on the same top row as the 3 category dots (CCC).
- */
+// --- UI Controls (ONE toggle only) ---
 function ensureMapControls() {
-  // Remove any duplicates from previous experiments (if they exist)
-  const existingControls = document.querySelectorAll("#hrmapControls");
-  if (existingControls.length > 1) {
-    existingControls.forEach((el, i) => {
-      if (i > 0) el.remove();
-    });
+  // ✅ Hard cleanup: remove any old/duplicate controls from previous builds/caches
+  document.querySelectorAll(".hrmapControls").forEach(el => el.remove());
+  // In case duplicates exist with same IDs (can happen in messy DOM states)
+  document.querySelectorAll("#hrmapControls").forEach(el => el.remove());
+
+  const wrap = document.createElement("div");
+  wrap.className = "hrmapControls";
+  wrap.id = "hrmapControls";
+
+  wrap.innerHTML = `
+    <button id="btnToggleBase" class="mapToggleBtn" type="button">
+      Show basemap
+    </button>
+  `;
+
+  const slot = document.getElementById("headerControls");
+  if (slot) slot.appendChild(wrap);
+  else {
+    // fallback: put near legend
+    const headerTop = document.querySelector(".headerTop") || document.querySelector(".header") || document.body;
+    headerTop.appendChild(wrap);
   }
 
-  const existingButtons = document.querySelectorAll("#btnToggleBase");
-  if (existingButtons.length > 1) {
-    existingButtons.forEach((el, i) => {
-      if (i > 0) el.remove();
-    });
+  const btnBase = document.getElementById("btnToggleBase");
+
+  // Default: basemap OFF (handwritten-only)
+  if (baseLayer && map.hasLayer(baseLayer)) {
+    map.removeLayer(baseLayer);
   }
+  btnBase.textContent = "Show basemap";
 
-  // If we already have a single control, just (re)place it correctly and wire it
-  let wrap = document.getElementById("hrmapControls");
-  let btnBase = document.getElementById("btnToggleBase");
+  btnBase.addEventListener("click", () => {
+    if (!baseLayer) return;
 
-  if (!wrap) {
-    wrap = document.createElement("span");
-    wrap.id = "hrmapControls";
-    wrap.style.cssText = `
-      display: inline-flex;
-      align-items: center;
-      margin-right: 10px;
-    `;
-  }
-
-  if (!btnBase) {
-    btnBase = document.createElement("button");
-    btnBase.id = "btnToggleBase";
-    btnBase.type = "button";
-    btnBase.textContent = "Show basemap";
-    btnBase.className = "miniBtn";
-    // Tiny styling inline so it works even before CSS changes
-    btnBase.style.cssText = `
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid #d6d6d6;
-      background: #fff;
-      cursor: pointer;
-      font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      line-height: 1;
-      white-space: nowrap;
-    `;
-    wrap.appendChild(btnBase);
-  } else {
-    // ensure button is inside wrapper
-    if (!wrap.contains(btnBase)) wrap.appendChild(btnBase);
-  }
-
-  // ✅ Place on the SAME ROW as the 3 dots
-  // That row is the first ".legend__row" (Category key)
-  const topLegendRow = document.querySelector(".legend .legend__row");
-  if (topLegendRow) {
-    // put it at the start of the row (so it sits left of CCC)
-    if (wrap.parentElement !== topLegendRow) {
-      topLegendRow.insertBefore(wrap, topLegendRow.firstChild);
-    }
-  } else {
-    // fallback: place near the legend
-    const legend = document.querySelector(".legend");
-    if (legend && wrap.parentElement !== legend) legend.insertBefore(wrap, legend.firstChild);
-  }
-
-  // Avoid double-binding click events
-  if (!btnBase.__wired) {
-    btnBase.__wired = true;
-
-    // Default: basemap OFF (handwritten-only view)
-    if (baseLayer && map && map.hasLayer(baseLayer)) {
+    if (map.hasLayer(baseLayer)) {
       map.removeLayer(baseLayer);
       btnBase.textContent = "Show basemap";
+    } else {
+      baseLayer.addTo(map);
+      btnBase.textContent = "Hide basemap";
     }
-
-    btnBase.addEventListener("click", () => {
-      if (!baseLayer || !map) return;
-
-      if (map.hasLayer(baseLayer)) {
-        map.removeLayer(baseLayer);
-        btnBase.textContent = "Show basemap";
-      } else {
-        baseLayer.addTo(map);
-        btnBase.textContent = "Hide basemap";
-      }
-    });
-  }
+  });
 }
 
 function initMap() {
-  // Keep setView (we'll tune view later if needed)
+  // keep setView as requested
   map = L.map("map", { scrollWheelZoom: false }).setView([44.5, 8.5], 4);
 
-  // Clean, label-free basemap
   baseLayer = L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
     { maxZoom: 20, subdomains: "abcd", attribution: "" }
   ).addTo(map);
 
-  // Handwritten overlay
   hrOverlay = L.imageOverlay(HRMAP_URL, HRMAP_BOUNDS, { opacity: 0.7 }).addTo(map);
   hrOverlay.on("error", () => console.error("❌ hrmap overlay failed to load:", HRMAP_URL));
 
   markersLayer = L.layerGroup().addTo(map);
   routesLayer = L.layerGroup().addTo(map);
 
-  // Build/position the single toggle
   ensureMapControls();
 }
 
@@ -184,7 +131,6 @@ function updatePeriodUI(index) {
   periodValue.textContent = `${p.label} (${start}–${end})`;
 }
 
-// --- Color / style helpers ---
 function routeColor(influence) {
   const v = String(influence || "").trim().toLowerCase();
   if (v === "christianity") return "#d32f2f";
@@ -210,7 +156,6 @@ function markerStyleSelected(color) {
   return { radius: 12, weight: 0, opacity: 0, color, fillColor: color, fillOpacity: 1 };
 }
 
-// --- Fade helpers ---
 function easeLinear(t) { return t; }
 
 function animateStyle(layer, from, to, durationMs = 300, onDone) {
@@ -260,7 +205,6 @@ function fadeInMarker(marker, targetFillOpacity, durationMs = 450) {
   animateStyle(marker, { fillOpacity: 0, opacity: 0 }, { fillOpacity: targetFillOpacity, opacity: 1 }, durationMs);
 }
 
-// --- Route crawl ---
 async function animateRouteCrawl(polyline, { fromLatLng, toLatLng, durationMs = 1500, delayMs = 0, token } = {}) {
   if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
   if (token !== renderToken) return;
@@ -283,7 +227,6 @@ async function animateRouteCrawl(polyline, { fromLatLng, toLatLng, durationMs = 
   requestAnimationFrame(frame);
 }
 
-// --- Hover tooltip ---
 function buildHoverHTML(obj) {
   const title = escapeHtml(obj?.title || obj?.id || "Object");
   const thumb = String(obj?.hover?.thumb || "").trim();
@@ -303,7 +246,6 @@ function buildHoverHTML(obj) {
   `;
 }
 
-// --- Right panel ---
 function buildPanelHTML(obj, period) {
   const title = escapeHtml(obj?.title || obj?.id || "Object");
   const subtitle = escapeHtml(obj?.panel?.subtitle || "");
@@ -336,7 +278,6 @@ function buildPanelHTML(obj, period) {
   `;
 }
 
-// --- Data loading ---
 async function loadData() {
   const [objectsRes, periodsRes] = await Promise.all([
     fetch("data/objects.json", { cache: "no-store" }),
